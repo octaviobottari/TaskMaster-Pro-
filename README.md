@@ -46,3 +46,9 @@ keep things lightweight. No internet required, which is a plus.
 
 We haven't finalized everything yet, but here's the folder/file structure 
 we're planning to use to keep things organized:
+
+## Favorite Quotes
+
+> "Success is not final, failure is not fatal: it is the courage to continue that counts." – Winston Churchill
+
+- Added by Victor Chavez
