@@ -27,7 +27,18 @@ All data is stored locally—no cloud, no accounts, no internet connection requi
 | **Sort** | ✅ Done | Click column headers to sort by Date, Priority, or Category |
 | **Statistics** | ✅ Done | Real-time counters: Total, Pending, Completed |
 | **Mock Data** | ✅ Done | 3 sample tasks pre-loaded for testing |
-| **Data Persistence** | 🔨 In Progress | SQLite integration (Victor's responsibility for Sprint 2) |
+| **Data Persistence** | ✅ Done | All tasks automatically saved to SQLite database (Sprint 2) |
+
+
+## Key Features (Completed in Sprint 2)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **SQLite Integration** | ✅ Done | Full CRUD operations with SQLite  `task_repository` |
+| **Data Persistence** | ✅ Done | Tasks automatically saved to `taskmaster.db` on every change |
+| **DB Adapter** | ✅ Done | `DBManager` connects UI repository seamlessly |
+| **Integration Testing** | ✅ Done | `test_integration.py` runs app with real database |
+
 
 ---
 
@@ -79,7 +90,11 @@ taskmaster-pro/
 ├── mock_manager.py # In-memory mock for testing
 ├── db_interface.py # Contract for DBManager 
 ├── db_manager.py # SQLite implementation 
-├── test_integration.py # Integration test script
+├── database.py # DB setup and connection
+├── task_repository.py # CRUD operations
+├── main.py # CLI Test
+├── test_database.py # DB test script
+├── test_integration.py # Integration test script (UI + DB)
 ├── requirements.txt # Python dependencies (Tkinter is built-in)
 └── README.md 
 
@@ -90,7 +105,7 @@ taskmaster-pro/
 | Sprint | Milestone | Status |
 |--------|-----------|--------|
 | **Sprint 1** | UI complete with mock data, filters, search, sorting, statistics | ✅ Done |
-| **Sprint 2** | SQLite integration, data persistence, CRUD with DB | 🔨 In Progress |
+| **Sprint 2** | SQLite integration, data persistence, CRUD with DB | ✅ Done |
 | **Sprint 3** | Edit/delete buttons, toggle status with DB, filter enhancements | 📅 Planned |
 | **Sprint 4** | Search, statistics dashboard, polish, bug fixes, demo recording | 📅 Planned |
 
@@ -102,13 +117,12 @@ taskmaster-pro/
    git clone https://github.com/your-repo/taskmaster-pro.git
    cd taskmaster-pro
 
-2. **Run the Application:**
-    python taskmaster_ui.py
+2. **Run the Application (with Mock Data - Sprint 1):**
+   python taskmaster_ui.py
 
-3. **Expected output:**
-    .A window titled "TaskMaster Pro" opens
-    .3 sample tasks are pre-loaded
-    .All buttons, filters, search, and sorting work immediately
+3. **Run the Application (with SQLite Database - Sprint 2):**
+    python test_integration.py
+
     
 We haven't finalized everything yet, but here's the folder/file structure 
 we're planning to use to keep things organized:
