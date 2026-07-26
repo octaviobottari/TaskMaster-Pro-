@@ -4,7 +4,13 @@ from typing import Optional
 from database import get_connection, initialize_database
 
 
-VALID_CATEGORIES = {"Work", "Personal", "Study", "Urgent"}
+VALID_CATEGORIES = {
+    "Work",
+    "Personal",
+    "Study",
+    "Urgent",
+    "Other",
+}
 VALID_PRIORITIES = {"Low", "Medium", "High"}
 VALID_STATUSES = {"Pending", "Completed"}
 
