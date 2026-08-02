@@ -1,105 +1,244 @@
-# db_manager.py - Adapter to use Victor's task_repository with the UI
+from collections.abc import Callable
+from typing import Any
+
 from task_repository import (
     create_task,
+    delete_task,
     get_all_tasks,
     get_task_by_id,
-    update_task,
-    delete_task,
     toggle_task_status,
+    update_task,
 )
 
 
 class DBManager:
     """
-    Adapter that implements the DatabaseManager interface
-    using Victor's task_repository functions.
+    Adapter that connects the graphical interface
+    with the task repository.
     """
 
-    def add_task(self, title, description, due_date, priority, category):
+    @staticmethod
+    def _execute(
+        operation: Callable[[], Any],
+        operation_name: str,
+    ) -> Any:
         """
-        Creates a task and returns its ID.
+        Executes a repository operation and provides
+        a clearer error message if it fails.
         """
-        return create_task(
-            title=title,
-            description=description,
-            category=category,
-            priority=priority,
-            due_date=due_date,
+        try:
+            return operation()
+
+        except ValueError:
+            raise
+
+        except RuntimeError:
+            raise
+
+        except Exception as error:
+            raise RuntimeError(
+                f"{operation_name} failed: {error}"
+            ) from error
+
+    def add_task(
+        self,
+        title,
+        description,
+        due_date,
+        priority,
+        category,
+    ):
+        """
+        Creates a task and returns its generated ID.
+        """
+        return self._execute(
+            lambda: create_task(
+                title=title,
+                description=description,
+                category=category,
+                priority=priority,
+                due_date=due_date,
+            ),
+            "Creating the task",
         )
 
     def get_all_tasks(self):
         """
-        Returns all tasks as a list of dictionaries.
+        Returns all tasks as dictionaries.
         """
-        return get_all_tasks()
+        return self._execute(
+            get_all_tasks,
+            "Loading tasks",
+        )
 
-    def get_task_by_id(self, task_id):
+    def get_task_by_id(
+        self,
+        task_id,
+    ):
         """
         Returns a task by ID or None.
         """
-        return get_task_by_id(task_id)
-
-    def update_task(self, task_id, **kwargs):
-        """
-        Updates a task. Returns True if successful.
-        """
-        # Get current task data
-        task = self.get_task_by_id(task_id)
-        if not task:
-            return False
-
-        # Use existing values if not provided
-        title = kwargs.get("title", task["title"])
-        description = kwargs.get("description", task["description"])
-        category = kwargs.get("category", task["category"])
-        priority = kwargs.get("priority", task["priority"])
-        due_date = kwargs.get("due_date", task["due_date"])
-        status = kwargs.get("status", task["status"])
-
-        return update_task(
-            task_id=task_id,
-            title=title,
-            description=description,
-            category=category,
-            priority=priority,
-            due_date=due_date,
-            status=status,
+        return self._execute(
+            lambda: get_task_by_id(task_id),
+            "Loading the task",
         )
 
-    def delete_task(self, task_id):
+    def update_task(
+        self,
+        task_id,
+        **kwargs,
+    ):
         """
-        Deletes a task. Returns True if successful.
+        Updates a task while preserving values
+        that were not supplied.
         """
-        return delete_task(task_id)
+        task = self.get_task_by_id(task_id)
 
-    def toggle_status(self, task_id):
-        """
-        Toggles status between Pending and Completed. Returns True if successful.
-        """
-        return toggle_task_status(task_id)
+        if task is None:
+            return False
 
-    def filter_tasks(self, status=None, search_term=None):
+        title = kwargs.get(
+            "title",
+            task["title"],
+        )
+
+        description = kwargs.get(
+            "description",
+            task["description"],
+        )
+
+        category = kwargs.get(
+            "category",
+            task["category"],
+        )
+
+        priority = kwargs.get(
+            "priority",
+            task["priority"],
+        )
+
+        due_date = kwargs.get(
+            "due_date",
+            task["due_date"],
+        )
+
+        status = kwargs.get(
+            "status",
+            task["status"],
+        )
+
+        return self._execute(
+            lambda: update_task(
+                task_id=task_id,
+                title=title,
+                description=description,
+                category=category,
+                priority=priority,
+                due_date=due_date,
+                status=status,
+            ),
+            "Updating the task",
+        )
+
+    def delete_task(
+        self,
+        task_id,
+    ):
         """
-        Filters tasks by status and search term.
-        Victor's repository doesn't have filters, so we implement them here.
+        Deletes a task.
+        """
+        return self._execute(
+            lambda: delete_task(task_id),
+            "Deleting the task",
+        )
+
+    def toggle_status(
+        self,
+        task_id,
+    ):
+        """
+        Changes the task between Pending and Completed.
+        """
+        return self._execute(
+            lambda: toggle_task_status(task_id),
+            "Changing the task status",
+        )
+
+    def filter_tasks(
+        self,
+        status=None,
+        search_term=None,
+        category=None,
+        priority=None,
+    ):
+        """
+        Filters tasks by status, search term,
+        category, and priority.
         """
         tasks = self.get_all_tasks()
+
         if status:
-            tasks = [t for t in tasks if t["status"] == status]
-        if search_term:
-            term = search_term.lower()
             tasks = [
-                t for t in tasks
-                if term in t["title"].lower() or term in t.get("description", "").lower()
+                task
+                for task in tasks
+                if task["status"] == status
             ]
+
+        if category:
+            tasks = [
+                task
+                for task in tasks
+                if task["category"] == category
+            ]
+
+        if priority:
+            tasks = [
+                task
+                for task in tasks
+                if task["priority"] == priority
+            ]
+
+        if search_term:
+            term = search_term.strip().lower()
+
+            tasks = [
+                task
+                for task in tasks
+                if (
+                    term
+                    in task["title"].lower()
+                    or term
+                    in (
+                        task.get("description")
+                        or ""
+                    ).lower()
+                )
+            ]
+
         return tasks
 
     def get_stats(self):
         """
-        Returns (total, pending, completed).
+        Returns total, pending, and completed counts.
         """
         tasks = self.get_all_tasks()
+
         total = len(tasks)
-        pending = sum(1 for t in tasks if t["status"] == "Pending")
-        completed = total - pending
-        return total, pending, completed
+
+        pending = sum(
+            1
+            for task in tasks
+            if task["status"] == "Pending"
+        )
+
+        completed = sum(
+            1
+            for task in tasks
+            if task["status"] == "Completed"
+        )
+
+        return (
+            total,
+            pending,
+            completed,
+        )

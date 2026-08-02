@@ -1,166 +1,509 @@
 import tkinter as tk
-from tkinter import ttk, messagebox
 from datetime import datetime
-import re
+from tkinter import messagebox, ttk
+
 from mock_manager import MockTaskManager
 
 
+CATEGORIES = [
+    "Work",
+    "Personal",
+    "Study",
+    "Urgent",
+    "Other",
+]
+
+PRIORITIES = [
+    "High",
+    "Medium",
+    "Low",
+]
+
+
 class TaskApp:
-    def __init__(self, root, db_manager=None):
+    def __init__(
+        self,
+        root,
+        db_manager=None,
+    ):
         self.root = root
         self.root.title("TaskMaster Pro")
-        self.root.geometry("1150x650")
-        self.root.resizable(True, True)
+        self.root.geometry("1150x680")
+        self.root.minsize(900, 600)
 
+        self.manager = (
+            db_manager
+            if db_manager is not None
+            else MockTaskManager()
+        )
 
-        if db_manager is None:
-            self.manager = MockTaskManager()  # Mock 
-        else:
-            self.manager = db_manager          # real DB
+        self.filter_var = tk.StringVar(
+            value="All"
+        )
 
-        
-        self.filter_var = tk.StringVar(value="All")
         self.search_var = tk.StringVar()
 
         self._build_widgets()
         self._refresh_treeview()
 
     def _build_widgets(self):
-        # -----------------------------------------------------------
-        # top panel
-        # -----------------------------------------------------------
-        top_frame = ttk.Frame(self.root, padding=10)
+        self._build_top_panel()
+        self._build_task_table()
+        self._build_task_form()
+
+    def _build_top_panel(self):
+        top_frame = ttk.Frame(
+            self.root,
+            padding=10,
+        )
         top_frame.pack(fill=tk.X)
 
         self.stats_label = ttk.Label(
             top_frame,
-            text="📊 Total: 0 | ⏳ Pending: 0 | ✅ Completed: 0",
-            font=("Arial", 11)
+            text=(
+                "Total: 0 | "
+                "Pending: 0 | "
+                "Completed: 0"
+            ),
+            font=("Arial", 11),
         )
-        self.stats_label.pack(side=tk.LEFT, padx=5)
+        self.stats_label.pack(
+            side=tk.LEFT,
+            padx=5,
+        )
 
-        ttk.Separator(top_frame, orient=tk.VERTICAL).pack(side=tk.LEFT, padx=20, fill=tk.Y)
+        ttk.Separator(
+            top_frame,
+            orient=tk.VERTICAL,
+        ).pack(
+            side=tk.LEFT,
+            padx=20,
+            fill=tk.Y,
+        )
 
-        # Filters
         filter_frame = ttk.Frame(top_frame)
         filter_frame.pack(side=tk.LEFT)
-        ttk.Label(filter_frame, text="Filter:").pack(side=tk.LEFT, padx=5)
 
-        for status in ["All", "Pending", "Completed"]:
-            rb = ttk.Radiobutton(
+        ttk.Label(
+            filter_frame,
+            text="Filter:",
+        ).pack(
+            side=tk.LEFT,
+            padx=5,
+        )
+
+        for status in [
+            "All",
+            "Pending",
+            "Completed",
+        ]:
+            ttk.Radiobutton(
                 filter_frame,
                 text=status,
                 variable=self.filter_var,
                 value=status,
-                command=self._apply_filter
+                command=self._apply_filter,
+            ).pack(
+                side=tk.LEFT,
+                padx=3,
             )
-            rb.pack(side=tk.LEFT, padx=3)
 
-        # Search
         search_frame = ttk.Frame(top_frame)
         search_frame.pack(side=tk.RIGHT)
-        ttk.Label(search_frame, text="Search:").pack(side=tk.LEFT, padx=5)
-        self.search_entry = ttk.Entry(search_frame, textvariable=self.search_var, width=20)
-        self.search_entry.pack(side=tk.LEFT, padx=3)
-        ttk.Button(search_frame, text="🔍 Search", command=self._apply_filter).pack(side=tk.LEFT)
-        ttk.Button(search_frame, text="Clear", command=self._clear_search).pack(side=tk.LEFT, padx=3)
 
-        # -----------------------------------------------------------
-        # Treeview
-        # -----------------------------------------------------------
-        tree_frame = ttk.Frame(self.root, padding=10)
-        tree_frame.pack(fill=tk.BOTH, expand=True)
+        ttk.Label(
+            search_frame,
+            text="Search:",
+        ).pack(
+            side=tk.LEFT,
+            padx=5,
+        )
 
-        columns = ("ID", "Title", "Date", "Priority", "Category", "Status")
-        self.tree = ttk.Treeview(tree_frame, columns=columns, show="headings", height=15)
+        self.search_entry = ttk.Entry(
+            search_frame,
+            textvariable=self.search_var,
+            width=20,
+        )
+        self.search_entry.pack(
+            side=tk.LEFT,
+            padx=3,
+        )
 
-        col_widths = {"ID": 50, "Title": 300, "Date": 120, "Priority": 100, "Category": 120, "Status": 120}
-        for col in columns:
+        self.search_entry.bind(
+            "<Return>",
+            lambda event: self._apply_filter(),
+        )
+
+        ttk.Button(
+            search_frame,
+            text="Search",
+            command=self._apply_filter,
+        ).pack(side=tk.LEFT)
+
+        ttk.Button(
+            search_frame,
+            text="Clear",
+            command=self._clear_search,
+        ).pack(
+            side=tk.LEFT,
+            padx=3,
+        )
+
+    def _build_task_table(self):
+        tree_frame = ttk.Frame(
+            self.root,
+            padding=10,
+        )
+        tree_frame.pack(
+            fill=tk.BOTH,
+            expand=True,
+        )
+
+        columns = (
+            "ID",
+            "Title",
+            "Date",
+            "Priority",
+            "Category",
+            "Status",
+        )
+
+        self.tree = ttk.Treeview(
+            tree_frame,
+            columns=columns,
+            show="headings",
+            height=15,
+        )
+
+        column_widths = {
+            "ID": 50,
+            "Title": 300,
+            "Date": 120,
+            "Priority": 100,
+            "Category": 120,
+            "Status": 120,
+        }
+
+        for column in columns:
             self.tree.heading(
-                col,
-                text=col,
-                command=lambda c=col: self._sort_by_column(c, False)
+                column,
+                text=column,
+                command=lambda selected_column=column:
+                self._sort_by_column(
+                    selected_column,
+                    False,
+                ),
             )
+
             self.tree.column(
-                col,
-                width=col_widths.get(col, 100),
-                anchor="center" if col != "Title" else "w"
+                column,
+                width=column_widths.get(
+                    column,
+                    100,
+                ),
+                anchor=(
+                    "w"
+                    if column == "Title"
+                    else "center"
+                ),
             )
 
-        scrollbar = ttk.Scrollbar(tree_frame, orient=tk.VERTICAL, command=self.tree.yview)
-        self.tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar = ttk.Scrollbar(
+            tree_frame,
+            orient=tk.VERTICAL,
+            command=self.tree.yview,
+        )
 
-        self.tree.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.tree.configure(
+            yscrollcommand=scrollbar.set,
+        )
 
-        # -----------------------------------------------------------
-        # Form
-        # -----------------------------------------------------------
-        form_frame = ttk.LabelFrame(self.root, text="Task Management", padding=15)
-        form_frame.pack(fill=tk.X, padx=10, pady=5)
+        self.tree.pack(
+            side=tk.LEFT,
+            fill=tk.BOTH,
+            expand=True,
+        )
 
-      
-        ttk.Label(form_frame, text="Title:").grid(row=0, column=0, padx=5, pady=5, sticky="e")
-        self.title_entry = ttk.Entry(form_frame, width=40)
-        self.title_entry.grid(row=0, column=1, padx=5, pady=5, sticky="w")
+        scrollbar.pack(
+            side=tk.RIGHT,
+            fill=tk.Y,
+        )
 
-       
-        ttk.Label(form_frame, text="Description:").grid(row=1, column=0, padx=5, pady=5, sticky="e")
-        self.desc_entry = ttk.Entry(form_frame, width=40)
-        self.desc_entry.grid(row=1, column=1, padx=5, pady=5, sticky="w")
+        self.tree.bind(
+            "<Double-1>",
+            lambda event: self._edit_task(),
+        )
 
-      
-        ttk.Label(form_frame, text="Date (YYYY-MM-DD):").grid(row=2, column=0, padx=5, pady=5, sticky="e")
-        self.date_entry = ttk.Entry(form_frame, width=15)
-        self.date_entry.grid(row=2, column=1, padx=5, pady=5, sticky="w")
-        self.date_entry.insert(0, datetime.today().strftime("%Y-%m-%d"))
+    def _build_task_form(self):
+        form_frame = ttk.LabelFrame(
+            self.root,
+            text="Task Management",
+            padding=15,
+        )
+        form_frame.pack(
+            fill=tk.X,
+            padx=10,
+            pady=5,
+        )
 
-        ttk.Label(form_frame, text="Priority:").grid(row=2, column=2, padx=5, pady=5, sticky="e")
+        ttk.Label(
+            form_frame,
+            text="Title:",
+        ).grid(
+            row=0,
+            column=0,
+            padx=5,
+            pady=5,
+            sticky="e",
+        )
+
+        self.title_entry = ttk.Entry(
+            form_frame,
+            width=40,
+        )
+        self.title_entry.grid(
+            row=0,
+            column=1,
+            padx=5,
+            pady=5,
+            sticky="w",
+        )
+
+        ttk.Label(
+            form_frame,
+            text="Description:",
+        ).grid(
+            row=1,
+            column=0,
+            padx=5,
+            pady=5,
+            sticky="e",
+        )
+
+        self.desc_entry = ttk.Entry(
+            form_frame,
+            width=40,
+        )
+        self.desc_entry.grid(
+            row=1,
+            column=1,
+            padx=5,
+            pady=5,
+            sticky="w",
+        )
+
+        ttk.Label(
+            form_frame,
+            text="Date (YYYY-MM-DD):",
+        ).grid(
+            row=2,
+            column=0,
+            padx=5,
+            pady=5,
+            sticky="e",
+        )
+
+        self.date_entry = ttk.Entry(
+            form_frame,
+            width=15,
+        )
+        self.date_entry.grid(
+            row=2,
+            column=1,
+            padx=5,
+            pady=5,
+            sticky="w",
+        )
+
+        self.date_entry.insert(
+            0,
+            datetime.today().strftime(
+                "%Y-%m-%d"
+            ),
+        )
+
+        ttk.Label(
+            form_frame,
+            text="Priority:",
+        ).grid(
+            row=2,
+            column=2,
+            padx=5,
+            pady=5,
+            sticky="e",
+        )
+
         self.priority_combo = ttk.Combobox(
             form_frame,
-            values=["High", "Medium", "Low"],
+            values=PRIORITIES,
             state="readonly",
-            width=10
+            width=10,
         )
-        self.priority_combo.grid(row=2, column=3, padx=5, pady=5, sticky="w")
-        self.priority_combo.current(1)  # Medium por defecto
+        self.priority_combo.grid(
+            row=2,
+            column=3,
+            padx=5,
+            pady=5,
+            sticky="w",
+        )
+        self.priority_combo.set("Medium")
 
-        ttk.Label(form_frame, text="Category:").grid(row=2, column=4, padx=5, pady=5, sticky="e")
+        ttk.Label(
+            form_frame,
+            text="Category:",
+        ).grid(
+            row=2,
+            column=4,
+            padx=5,
+            pady=5,
+            sticky="e",
+        )
+
         self.category_combo = ttk.Combobox(
             form_frame,
-            values=["Work", "Personal", "Study", "Urgent", "Other"],
+            values=CATEGORIES,
             state="readonly",
-            width=12
+            width=12,
         )
-        self.category_combo.grid(row=2, column=5, padx=5, pady=5, sticky="w")
-        self.category_combo.current(0)
+        self.category_combo.grid(
+            row=2,
+            column=5,
+            padx=5,
+            pady=5,
+            sticky="w",
+        )
+        self.category_combo.set("Work")
 
-        # Buttons
-        btn_frame = ttk.Frame(form_frame)
-        btn_frame.grid(row=3, column=0, columnspan=6, pady=10)
+        button_frame = ttk.Frame(form_frame)
+        button_frame.grid(
+            row=3,
+            column=0,
+            columnspan=6,
+            pady=10,
+        )
 
-        ttk.Button(btn_frame, text="➕ Add", command=self._add_task).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="✏️ Edit Selected", command=self._edit_task).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="🗑️ Delete Selected", command=self._delete_task).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="✅ Toggle Status", command=self._toggle_task).pack(side=tk.LEFT, padx=5)
-        ttk.Button(btn_frame, text="🔄 Refresh", command=self._refresh_treeview).pack(side=tk.LEFT, padx=5)
+        ttk.Button(
+            button_frame,
+            text="Add",
+            command=self._add_task,
+        ).pack(
+            side=tk.LEFT,
+            padx=5,
+        )
 
-     
-        self.tree.bind("<Double-1>", lambda e: self._edit_task())
+        ttk.Button(
+            button_frame,
+            text="Edit Selected",
+            command=self._edit_task,
+        ).pack(
+            side=tk.LEFT,
+            padx=5,
+        )
 
-    # ----------------------------------------------------------------
-    # Actions: Add, Edit, Delete, Toggle
-    # ----------------------------------------------------------------
+        ttk.Button(
+            button_frame,
+            text="Delete Selected",
+            command=self._delete_task,
+        ).pack(
+            side=tk.LEFT,
+            padx=5,
+        )
+
+        ttk.Button(
+            button_frame,
+            text="Toggle Status",
+            command=self._toggle_task,
+        ).pack(
+            side=tk.LEFT,
+            padx=5,
+        )
+
+        ttk.Button(
+            button_frame,
+            text="Refresh",
+            command=self._refresh_treeview,
+        ).pack(
+            side=tk.LEFT,
+            padx=5,
+        )
+
+    @staticmethod
+    def _validate_form(
+        title,
+        description,
+        due_date,
+        priority,
+        category,
+    ):
+        if not title:
+            raise ValueError(
+                "The task title is required."
+            )
+
+        if len(title) < 3:
+            raise ValueError(
+                "The task title must contain "
+                "at least 3 characters."
+            )
+
+        if len(title) > 100:
+            raise ValueError(
+                "The task title cannot exceed "
+                "100 characters."
+            )
+
+        if len(description) > 500:
+            raise ValueError(
+                "The description cannot exceed "
+                "500 characters."
+            )
+
+        try:
+            parsed_date = datetime.strptime(
+                due_date,
+                "%Y-%m-%d",
+            ).date()
+
+        except ValueError as error:
+            raise ValueError(
+                "The due date must be valid and use "
+                "the YYYY-MM-DD format."
+            ) from error
+
+        if parsed_date < datetime.today().date():
+            raise ValueError(
+                "The due date cannot be in the past."
+            )
+
+        if priority not in PRIORITIES:
+            raise ValueError(
+                "Please select a valid priority."
+            )
+
+        if category not in CATEGORIES:
+            raise ValueError(
+                "Please select a valid category."
+            )
+
     def _get_selected_id(self):
         selected = self.tree.selection()
+
         if not selected:
-            messagebox.showwarning("Selection required", "Please select a task from the list.")
+            messagebox.showwarning(
+                "Selection required",
+                "Please select a task from the list.",
+            )
             return None
-        item = self.tree.item(selected[0])
-        values = item["values"]
-        if values:
-            return int(values[0])
-        return None
+
+        values = self.tree.item(
+            selected[0],
+            "values",
+        )
+
+        if not values:
+            return None
+
+        return int(values[0])
 
     def _add_task(self):
         title = self.title_entry.get().strip()
@@ -169,195 +512,522 @@ class TaskApp:
         priority = self.priority_combo.get()
         category = self.category_combo.get()
 
-        if not title:
-            messagebox.showerror("Error", "Title is required.")
-            return
-        if not re.match(r"\d{4}-\d{2}-\d{2}", due_date):
-            messagebox.showerror("Error", "Invalid date format. Use YYYY-MM-DD.")
+        try:
+            self._validate_form(
+                title,
+                description,
+                due_date,
+                priority,
+                category,
+            )
+
+            task_id = self.manager.add_task(
+                title,
+                description,
+                due_date,
+                priority,
+                category,
+            )
+
+            if not task_id:
+                raise RuntimeError(
+                    "The task could not be created."
+                )
+
+        except ValueError as error:
+            messagebox.showerror(
+                "Validation Error",
+                str(error),
+            )
             return
 
-        self.manager.add_task(title, description, due_date, priority, category)
+        except RuntimeError as error:
+            messagebox.showerror(
+                "Database Error",
+                str(error),
+            )
+            return
+
+        except Exception as error:
+            messagebox.showerror(
+                "Unexpected Error",
+                str(error),
+            )
+            return
+
+        self._clear_form()
         self._refresh_treeview()
-        self.title_entry.delete(0, tk.END)
-        self.desc_entry.delete(0, tk.END)
-        self.date_entry.delete(0, tk.END)
-        self.date_entry.insert(0, datetime.today().strftime("%Y-%m-%d"))
+
+        messagebox.showinfo(
+            "Task created",
+            "The task was created successfully.",
+        )
+
+    def _clear_form(self):
+        self.title_entry.delete(
+            0,
+            tk.END,
+        )
+
+        self.desc_entry.delete(
+            0,
+            tk.END,
+        )
+
+        self.date_entry.delete(
+            0,
+            tk.END,
+        )
+
+        self.date_entry.insert(
+            0,
+            datetime.today().strftime(
+                "%Y-%m-%d"
+            ),
+        )
+
+        self.priority_combo.set("Medium")
+        self.category_combo.set("Work")
+        self.title_entry.focus_set()
 
     def _edit_task(self):
         task_id = self._get_selected_id()
+
         if task_id is None:
             return
 
-        task = self.manager.get_task_by_id(task_id)
-        if not task:
-            messagebox.showerror("Error", "Task does not exist.")
+        try:
+            task = self.manager.get_task_by_id(
+                task_id
+            )
+
+        except Exception as error:
+            messagebox.showerror(
+                "Database Error",
+                str(error),
+            )
             return
 
-        edit_win = tk.Toplevel(self.root)
-        edit_win.title(f"Edit Task #{task_id}")
-        edit_win.geometry("420x280")
-        edit_win.transient(self.root)
-        edit_win.grab_set()
-
-        title_var = tk.StringVar(value=task["title"])
-        desc_var = tk.StringVar(value=task.get("description", ""))
-        date_var = tk.StringVar(value=task["due_date"])
-        priority_var = tk.StringVar(value=task["priority"])
-        category_var = tk.StringVar(value=task["category"])
-
-        ttk.Label(edit_win, text="Title:").grid(row=0, column=0, padx=10, pady=10, sticky="e")
-        ttk.Entry(edit_win, textvariable=title_var, width=30).grid(row=0, column=1, padx=10, pady=10)
-
-        ttk.Label(edit_win, text="Description:").grid(row=1, column=0, padx=10, pady=10, sticky="e")
-        ttk.Entry(edit_win, textvariable=desc_var, width=30).grid(row=1, column=1, padx=10, pady=10)
-
-        ttk.Label(edit_win, text="Date (YYYY-MM-DD):").grid(row=2, column=0, padx=10, pady=10, sticky="e")
-        ttk.Entry(edit_win, textvariable=date_var, width=30).grid(row=2, column=1, padx=10, pady=10)
-
-        ttk.Label(edit_win, text="Priority:").grid(row=3, column=0, padx=10, pady=10, sticky="e")
-        prio_combo = ttk.Combobox(
-            edit_win,
-            values=["High", "Medium", "Low"],
-            textvariable=priority_var,
-            state="readonly"
-        )
-        prio_combo.grid(row=3, column=1, padx=10, pady=10)
-
-        ttk.Label(edit_win, text="Category:").grid(row=4, column=0, padx=10, pady=10, sticky="e")
-        cat_combo = ttk.Combobox(
-            edit_win,
-            values=["Work", "Personal", "Study", "Urgent", "Other"],
-            textvariable=category_var,
-            state="readonly"
-        )
-        cat_combo.grid(row=4, column=1, padx=10, pady=10)
-
-        def save_edit():
-            new_title = title_var.get().strip()
-            new_desc = desc_var.get().strip()
-            new_date = date_var.get().strip()
-            if not new_title:
-                messagebox.showerror("Error", "Title cannot be empty.")
-                return
-            if not re.match(r"\d{4}-\d{2}-\d{2}", new_date):
-                messagebox.showerror("Error", "Invalid date format.")
-                return
-            self.manager.update_task(
-                task_id,
-                title=new_title,
-                description=new_desc,
-                due_date=new_date,
-                priority=priority_var.get(),
-                category=category_var.get()
+        if task is None:
+            messagebox.showerror(
+                "Error",
+                "The selected task does not exist.",
             )
-            edit_win.destroy()
+            return
+
+        edit_window = tk.Toplevel(self.root)
+        edit_window.title(
+            f"Edit Task #{task_id}"
+        )
+        edit_window.geometry("440x330")
+        edit_window.resizable(False, False)
+        edit_window.transient(self.root)
+        edit_window.grab_set()
+
+        title_var = tk.StringVar(
+            value=task["title"]
+        )
+
+        description_var = tk.StringVar(
+            value=task.get(
+                "description",
+                "",
+            )
+        )
+
+        date_var = tk.StringVar(
+            value=task["due_date"]
+        )
+
+        priority_var = tk.StringVar(
+            value=task["priority"]
+        )
+
+        category_var = tk.StringVar(
+            value=task["category"]
+        )
+
+        labels = [
+            "Title:",
+            "Description:",
+            "Date (YYYY-MM-DD):",
+            "Priority:",
+            "Category:",
+        ]
+
+        for index, label in enumerate(labels):
+            ttk.Label(
+                edit_window,
+                text=label,
+            ).grid(
+                row=index,
+                column=0,
+                padx=10,
+                pady=10,
+                sticky="e",
+            )
+
+        ttk.Entry(
+            edit_window,
+            textvariable=title_var,
+            width=32,
+        ).grid(
+            row=0,
+            column=1,
+            padx=10,
+            pady=10,
+        )
+
+        ttk.Entry(
+            edit_window,
+            textvariable=description_var,
+            width=32,
+        ).grid(
+            row=1,
+            column=1,
+            padx=10,
+            pady=10,
+        )
+
+        ttk.Entry(
+            edit_window,
+            textvariable=date_var,
+            width=32,
+        ).grid(
+            row=2,
+            column=1,
+            padx=10,
+            pady=10,
+        )
+
+        ttk.Combobox(
+            edit_window,
+            values=PRIORITIES,
+            textvariable=priority_var,
+            state="readonly",
+            width=29,
+        ).grid(
+            row=3,
+            column=1,
+            padx=10,
+            pady=10,
+        )
+
+        ttk.Combobox(
+            edit_window,
+            values=CATEGORIES,
+            textvariable=category_var,
+            state="readonly",
+            width=29,
+        ).grid(
+            row=4,
+            column=1,
+            padx=10,
+            pady=10,
+        )
+
+        def save_changes():
+            new_title = title_var.get().strip()
+            new_description = (
+                description_var.get().strip()
+            )
+            new_date = date_var.get().strip()
+            new_priority = priority_var.get()
+            new_category = category_var.get()
+
+            try:
+                self._validate_form(
+                    new_title,
+                    new_description,
+                    new_date,
+                    new_priority,
+                    new_category,
+                )
+
+                updated = self.manager.update_task(
+                    task_id,
+                    title=new_title,
+                    description=new_description,
+                    due_date=new_date,
+                    priority=new_priority,
+                    category=new_category,
+                )
+
+                if not updated:
+                    raise RuntimeError(
+                        "The task could not be updated."
+                    )
+
+            except ValueError as error:
+                messagebox.showerror(
+                    "Validation Error",
+                    str(error),
+                    parent=edit_window,
+                )
+                return
+
+            except Exception as error:
+                messagebox.showerror(
+                    "Database Error",
+                    str(error),
+                    parent=edit_window,
+                )
+                return
+
+            edit_window.destroy()
             self._refresh_treeview()
 
-        ttk.Button(edit_win, text="Save Changes", command=save_edit).grid(row=5, column=0, columnspan=2, pady=20)
+            messagebox.showinfo(
+                "Task updated",
+                "The task was updated successfully.",
+            )
+
+        ttk.Button(
+            edit_window,
+            text="Save Changes",
+            command=save_changes,
+        ).grid(
+            row=5,
+            column=0,
+            columnspan=2,
+            pady=20,
+        )
 
     def _delete_task(self):
         task_id = self._get_selected_id()
+
         if task_id is None:
             return
-        if messagebox.askyesno("Confirm", f"Permanently delete task #{task_id}?"):
-            self.manager.delete_task(task_id)
-            self._refresh_treeview()
+
+        confirmed = messagebox.askyesno(
+            "Confirm deletion",
+            (
+                "Are you sure you want to permanently "
+                f"delete task #{task_id}?"
+            ),
+        )
+
+        if not confirmed:
+            return
+
+        try:
+            deleted = self.manager.delete_task(
+                task_id
+            )
+
+            if not deleted:
+                raise RuntimeError(
+                    "The task could not be deleted."
+                )
+
+        except Exception as error:
+            messagebox.showerror(
+                "Database Error",
+                str(error),
+            )
+            return
+
+        self._refresh_treeview()
+
+        messagebox.showinfo(
+            "Task deleted",
+            "The task was deleted successfully.",
+        )
 
     def _toggle_task(self):
         task_id = self._get_selected_id()
+
         if task_id is None:
             return
-        self.manager.toggle_status(task_id)
+
+        try:
+            changed = self.manager.toggle_status(
+                task_id
+            )
+
+            if not changed:
+                raise RuntimeError(
+                    "The task status could not be changed."
+                )
+
+        except Exception as error:
+            messagebox.showerror(
+                "Database Error",
+                str(error),
+            )
+            return
+
         self._refresh_treeview()
 
     def _clear_search(self):
         self.search_var.set("")
         self._apply_filter()
 
-    # ----------------------------------------------------------------
-    # Filters, searching and ordering 
-    # ----------------------------------------------------------------
     def _apply_filter(self):
         self._refresh_treeview()
 
-    def _sort_by_column(self, col, reverse):
-        col_map = {
+    def _sort_by_column(
+        self,
+        column,
+        reverse,
+    ):
+        column_map = {
             "ID": "id",
             "Title": "title",
             "Date": "due_date",
             "Priority": "priority",
             "Category": "category",
-            "Status": "status"
+            "Status": "status",
         }
-        key = col_map.get(col, "id")
+
+        key = column_map.get(
+            column,
+            "id",
+        )
 
         items = self.tree.get_children("")
+
         if not items:
             return
 
         data = []
+
         for item in items:
-            values = self.tree.item(item, "values")
+            values = self.tree.item(
+                item,
+                "values",
+            )
+
             task_id = int(values[0])
-            task = self.manager.get_task_by_id(task_id)
+
+            try:
+                task = self.manager.get_task_by_id(
+                    task_id
+                )
+            except Exception:
+                continue
+
             if task:
-                data.append((task, item))
+                data.append(
+                    (
+                        task,
+                        item,
+                    )
+                )
 
-        priority_order = {"High": 0, "Medium": 1, "Low": 2}
+        priority_order = {
+            "High": 0,
+            "Medium": 1,
+            "Low": 2,
+        }
 
-        def sort_func(task_item):
+        def sort_value(task_item):
             task, _ = task_item
-            val = task.get(key, "")
+            value = task.get(key, "")
+
             if key == "priority":
-                return priority_order.get(val, 99)
-            elif key == "due_date":
+                return priority_order.get(
+                    value,
+                    99,
+                )
+
+            if key == "due_date":
                 try:
-                    return datetime.strptime(val, "%Y-%m-%d")
-                except:
+                    return datetime.strptime(
+                        value,
+                        "%Y-%m-%d",
+                    )
+                except ValueError:
                     return datetime.min
-            else:
-                return str(val).lower()
 
-        data.sort(key=sort_func, reverse=reverse)
+            if key == "id":
+                return int(value)
 
-        for idx, (task, item) in enumerate(data):
-            self.tree.move(item, "", idx)
+            return str(value).lower()
 
-        self.tree.heading(col, command=lambda: self._sort_by_column(col, not reverse))
+        data.sort(
+            key=sort_value,
+            reverse=reverse,
+        )
+
+        for index, (_, item) in enumerate(data):
+            self.tree.move(
+                item,
+                "",
+                index,
+            )
+
+        self.tree.heading(
+            column,
+            command=lambda:
+            self._sort_by_column(
+                column,
+                not reverse,
+            ),
+        )
 
     def _refresh_treeview(self):
-        # Apply filters
         status_filter = self.filter_var.get()
         search_term = self.search_var.get().strip()
 
-        status_map = {"All": None, "Pending": "Pending", "Completed": "Completed"}
-        status = status_map.get(status_filter, None)
+        status_map = {
+            "All": None,
+            "Pending": "Pending",
+            "Completed": "Completed",
+        }
 
-        filtered = self.manager.filter_tasks(status=status, search_term=search_term if search_term else None)
+        status = status_map.get(
+            status_filter
+        )
 
-        # Update statistics 
-        total, pending, completed = self.manager.get_stats()
-        self.stats_label.config(text=f"📊 Total: {total} | ⏳ Pending: {pending} | ✅ Completed: {completed}")
+        try:
+            filtered = self.manager.filter_tasks(
+                status=status,
+                search_term=(
+                    search_term
+                    if search_term
+                    else None
+                ),
+            )
 
-        # Clean and reload TreeView
+            total, pending, completed = (
+                self.manager.get_stats()
+            )
+
+        except Exception as error:
+            messagebox.showerror(
+                "Database Error",
+                str(error),
+            )
+            return
+
+        self.stats_label.config(
+            text=(
+                f"Total: {total} | "
+                f"Pending: {pending} | "
+                f"Completed: {completed}"
+            )
+        )
+
         for item in self.tree.get_children(""):
             self.tree.delete(item)
 
         for task in filtered:
-            self.tree.insert("", tk.END, values=(
-                task["id"],
-                task["title"],
-                task["due_date"],
-                task["priority"],
-                task["category"],
-                task["status"]
-            ))
+            self.tree.insert(
+                "",
+                tk.END,
+                values=(
+                    task["id"],
+                    task["title"],
+                    task["due_date"],
+                    task["priority"],
+                    task["category"],
+                    task["status"],
+                ),
+            )
 
 
-# -------------------------------------------------------------------
-# EXECUTION
-# -------------------------------------------------------------------
 if __name__ == "__main__":
     root = tk.Tk()
-    app = TaskApp(root)
+    TaskApp(root)
     root.mainloop()
