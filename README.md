@@ -40,6 +40,26 @@ All data is stored locally—no cloud, no accounts, no internet connection requi
 | **Integration Testing** | ✅ Done | `test_integration.py` runs app with real database |
 
 
+## Key Features (Completed in Sprint 3)
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| **Category Filter** | ✅ Done | Filter tasks by category (Work, Personal, Study, Urgent, Other) |
+| **Priority Filter** | ✅ Done | Filter tasks by priority (High, Medium, Low) |
+| **Visual Feedback** | ✅ Done | Color-coded rows: Pending (yellow), Completed (green); priority text colors |
+| **UI Layout** | ✅ Done | Improved filter panel with organized rows and clear labels |
+| **Enhanced Search** | ✅ Done | Search works combined with all filters |
+| **Full Testing** | ✅ Done | Verified all CRUD, filters, search, sorting with SQLite |
+
+### Development Status
+
+| Sprint | Milestone | Status |
+|--------|-----------|--------|
+| **Sprint 1** | UI complete with mock data, filters, search, sorting, statistics | ✅ Done |
+| **Sprint 2** | SQLite integration, data persistence, CRUD with DB | ✅ Done |
+| **Sprint 3** | UI enhancements: category/priority filters, visual feedback, layout improvements | ✅ Done |
+| **Sprint 4** | Polish, bug fixes, demo recording | 📅 Planned |
+
 ---
 
 ## Technology Stack
@@ -98,18 +118,6 @@ taskmaster-pro/
 ├── requirements.txt # Python dependencies (Tkinter is built-in)
 └── README.md 
 
----
-
-## Development Status
-
-| Sprint | Milestone | Status |
-|--------|-----------|--------|
-| **Sprint 1** | UI complete with mock data, filters, search, sorting, statistics | ✅ Done |
-| **Sprint 2** | SQLite integration, data persistence, CRUD with DB | ✅ Done |
-| **Sprint 3** | Edit/delete buttons, toggle status with DB, filter enhancements | 📅 Planned |
-| **Sprint 4** | Search, statistics dashboard, polish, bug fixes, demo recording | 📅 Planned |
-
----
 
 ## How to Run the App (Current Version)
 
