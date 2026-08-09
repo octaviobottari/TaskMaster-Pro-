@@ -1,15 +1,19 @@
 from datetime import date, timedelta
 
-from database import initialize_database
+from database import (
+    check_database_health,
+    initialize_database,
+)
 from db_manager import DBManager
 
 
 def run_integration_tests() -> None:
     """
-    Tests the connection between DBManager,
-    task_repository, and SQLite.
+    Complete final integration test for TaskMaster Pro.
     """
     initialize_database()
+
+    assert check_database_health() is True
 
     manager = DBManager()
     task_id = None
@@ -19,14 +23,18 @@ def run_integration_tests() -> None:
         + timedelta(days=7)
     ).isoformat()
 
+    future_date_2 = (
+        date.today()
+        + timedelta(days=14)
+    ).isoformat()
+
     try:
         print("1. Testing task creation...")
 
         task_id = manager.add_task(
-            title="W05 Integration Test",
+            title="W06 Final Integration Test",
             description=(
-                "Testing database stability "
-                "and persistence"
+                "Testing final application integration"
             ),
             due_date=future_date,
             priority="High",
@@ -34,7 +42,8 @@ def run_integration_tests() -> None:
         )
 
         assert isinstance(task_id, int)
-        print("   Task creation passed.")
+
+        print("   PASS")
 
         print("2. Testing task retrieval...")
 
@@ -43,21 +52,17 @@ def run_integration_tests() -> None:
         )
 
         assert task is not None
-        assert task["title"] == (
-            "W05 Integration Test"
-        )
         assert task["status"] == "Pending"
 
-        print("   Task retrieval passed.")
+        print("   PASS")
 
         print("3. Testing task update...")
 
         updated = manager.update_task(
             task_id,
-            title="W05 Updated Task",
-            description=(
-                "Updated integration test"
-            ),
+            title="W06 Updated Final Task",
+            description="Final integration test",
+            due_date=future_date_2,
             priority="Medium",
             category="Other",
         )
@@ -69,14 +74,12 @@ def run_integration_tests() -> None:
         )
 
         assert task["title"] == (
-            "W05 Updated Task"
+            "W06 Updated Final Task"
         )
-        assert task["priority"] == "Medium"
-        assert task["category"] == "Other"
 
-        print("   Task update passed.")
+        print("   PASS")
 
-        print("4. Testing status change...")
+        print("4. Testing status toggle...")
 
         changed = manager.toggle_status(
             task_id
@@ -90,37 +93,74 @@ def run_integration_tests() -> None:
 
         assert task["status"] == "Completed"
 
-        print("   Status change passed.")
+        print("   PASS")
 
-        print("5. Testing search...")
+        print("5. Testing title search...")
 
-        search_results = manager.filter_tasks(
-            search_term="updated task"
+        results = manager.filter_tasks(
+            search_term="updated final"
         )
 
         assert any(
-            result["id"] == task_id
-            for result in search_results
+            task["id"] == task_id
+            for task in results
         )
 
-        print("   Search passed.")
+        print("   PASS")
 
-        print("6. Testing status filter...")
+        print("6. Testing description search...")
 
-        completed_results = (
-            manager.filter_tasks(
-                status="Completed"
-            )
+        results = manager.filter_tasks(
+            search_term="integration"
         )
 
         assert any(
-            result["id"] == task_id
-            for result in completed_results
+            task["id"] == task_id
+            for task in results
         )
 
-        print("   Status filter passed.")
+        print("   PASS")
 
-        print("7. Testing statistics...")
+        print("7. Testing status filter...")
+
+        results = manager.filter_tasks(
+            status="Completed"
+        )
+
+        assert any(
+            task["id"] == task_id
+            for task in results
+        )
+
+        print("   PASS")
+
+        print("8. Testing category filter...")
+
+        results = manager.filter_tasks(
+            category="Other"
+        )
+
+        assert any(
+            task["id"] == task_id
+            for task in results
+        )
+
+        print("   PASS")
+
+        print("9. Testing priority filter...")
+
+        results = manager.filter_tasks(
+            priority="Medium"
+        )
+
+        assert any(
+            task["id"] == task_id
+            for task in results
+        )
+
+        print("   PASS")
+
+        print("10. Testing statistics...")
 
         total, pending, completed = (
             manager.get_stats()
@@ -130,69 +170,69 @@ def run_integration_tests() -> None:
         assert pending >= 0
         assert completed >= 1
 
-        print("   Statistics passed.")
+        print("   PASS")
 
-        print("8. Testing invalid title...")
+        print("11. Testing invalid empty title...")
 
         try:
             manager.add_task(
                 title="",
-                description="Invalid title test",
+                description="Bad task",
                 due_date=future_date,
                 priority="High",
                 category="Work",
             )
 
             raise AssertionError(
-                "An empty title was accepted."
+                "Empty title was accepted."
             )
 
         except ValueError:
-            print(
-                "   Invalid title validation passed."
-            )
+            pass
 
-        print("9. Testing short title...")
+        print("   PASS")
+
+        print("12. Testing short title...")
 
         try:
             manager.add_task(
                 title="Hi",
-                description="Short title test",
+                description="Bad task",
                 due_date=future_date,
                 priority="High",
                 category="Work",
             )
 
             raise AssertionError(
-                "A short title was accepted."
+                "Short title was accepted."
             )
 
         except ValueError:
-            print(
-                "   Short title validation passed."
-            )
+            pass
 
-        print("10. Testing invalid date...")
+        print("   PASS")
+
+        print("13. Testing invalid date...")
 
         try:
             manager.add_task(
-                title="Invalid Date Test",
-                description="Invalid date",
+                title="Invalid Date Task",
+                description="Bad date",
                 due_date="2026-99-99",
                 priority="High",
                 category="Work",
             )
 
             raise AssertionError(
-                "An invalid date was accepted."
+                "Invalid date was accepted."
             )
 
         except ValueError:
-            print(
-                "   Invalid date validation passed."
-            )
+            pass
 
-        print("11. Testing past date...")
+        print("   PASS")
+
+        print("14. Testing past date...")
 
         past_date = (
             date.today()
@@ -201,23 +241,43 @@ def run_integration_tests() -> None:
 
         try:
             manager.add_task(
-                title="Past Date Test",
-                description="Past date",
+                title="Past Date Task",
+                description="Past date test",
                 due_date=past_date,
                 priority="High",
                 category="Work",
             )
 
             raise AssertionError(
-                "A past date was accepted."
+                "Past date was accepted."
             )
 
         except ValueError:
-            print(
-                "   Past date validation passed."
+            pass
+
+        print("   PASS")
+
+        print("15. Testing invalid category...")
+
+        try:
+            manager.add_task(
+                title="Invalid Category Task",
+                description="Category test",
+                due_date=future_date,
+                priority="High",
+                category="FakeCategory",
             )
 
-        print("12. Testing persistence...")
+            raise AssertionError(
+                "Invalid category was accepted."
+            )
+
+        except ValueError:
+            pass
+
+        print("   PASS")
+
+        print("16. Testing persistence...")
 
         second_manager = DBManager()
 
@@ -230,9 +290,21 @@ def run_integration_tests() -> None:
         assert persisted_task is not None
         assert persisted_task["id"] == task_id
 
-        print("   Persistence passed.")
+        print("   PASS")
 
-        print("13. Testing task deletion...")
+        print("17. Testing nonexistent task...")
+
+        nonexistent = (
+            manager.get_task_by_id(
+                999999999
+            )
+        )
+
+        assert nonexistent is None
+
+        print("   PASS")
+
+        print("18. Testing task deletion...")
 
         deleted = manager.delete_task(
             task_id
@@ -242,10 +314,10 @@ def run_integration_tests() -> None:
 
         task_id = None
 
-        print("   Task deletion passed.")
+        print("   PASS")
 
         print(
-            "\nAll W05 integration tests "
+            "\nAll W06 final integration tests "
             "passed successfully."
         )
 

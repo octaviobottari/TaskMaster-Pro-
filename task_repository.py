@@ -104,6 +104,16 @@ def validate_task_data(
         )
 
 
+def _validate_task_id(task_id: int) -> None:
+    """
+    Validates a task ID before database operations.
+    """
+    if not isinstance(task_id, int) or task_id <= 0:
+        raise ValueError(
+            "Task ID must be a positive integer."
+        )
+
+
 def row_to_dictionary(
     row: Optional[sqlite3.Row],
 ) -> Optional[dict]:
@@ -178,10 +188,7 @@ def get_task_by_id(
 
     Returns None if the task does not exist.
     """
-    if not isinstance(task_id, int) or task_id <= 0:
-        raise ValueError(
-            "Task ID must be a positive integer."
-        )
+    _validate_task_id(task_id)
 
     try:
         with get_connection() as connection:
@@ -252,13 +259,10 @@ def update_task(
     """
     Updates an existing task.
 
-    Returns True if a task was updated.
-    Returns False if the task does not exist.
+    Returns True if updated.
+    Returns False when the task does not exist.
     """
-    if not isinstance(task_id, int) or task_id <= 0:
-        raise ValueError(
-            "Task ID must be a positive integer."
-        )
+    _validate_task_id(task_id)
 
     validate_task_data(
         title=title,
@@ -310,12 +314,9 @@ def set_task_status(
     status: str,
 ) -> bool:
     """
-    Changes a task status to Pending or Completed.
+    Changes task status.
     """
-    if not isinstance(task_id, int) or task_id <= 0:
-        raise ValueError(
-            "Task ID must be a positive integer."
-        )
+    _validate_task_id(task_id)
 
     if status not in VALID_STATUSES:
         raise ValueError(
@@ -373,14 +374,8 @@ def delete_task(
 ) -> bool:
     """
     Deletes a task by ID.
-
-    Returns True if the task was deleted.
-    Returns False if the task did not exist.
     """
-    if not isinstance(task_id, int) or task_id <= 0:
-        raise ValueError(
-            "Task ID must be a positive integer."
-        )
+    _validate_task_id(task_id)
 
     try:
         with get_connection() as connection:

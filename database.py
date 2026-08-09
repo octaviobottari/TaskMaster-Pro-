@@ -17,12 +17,16 @@ def get_connection() -> sqlite3.Connection:
         timeout=10,
     )
     connection.row_factory = sqlite3.Row
+
+    # Recommended SQLite setting for local desktop applications.
+    connection.execute("PRAGMA foreign_keys = ON;")
+
     return connection
 
 
 def initialize_database() -> None:
     """
-    Creates the tasks table and its indexes if they do not exist.
+    Creates the tasks table and supporting indexes if they do not exist.
     """
     try:
         with get_connection() as connection:
@@ -69,6 +73,13 @@ def initialize_database() -> None:
                 """
             )
 
+            connection.execute(
+                """
+                CREATE INDEX IF NOT EXISTS idx_tasks_title
+                ON tasks(title);
+                """
+            )
+
             connection.commit()
 
     except sqlite3.Error as error:
@@ -77,8 +88,35 @@ def initialize_database() -> None:
         ) from error
 
 
+def check_database_health() -> bool:
+    """
+    Performs a simple SQLite integrity check.
+
+    Returns True when the database passes the integrity check.
+    """
+    try:
+        with get_connection() as connection:
+            result = connection.execute(
+                "PRAGMA integrity_check;"
+            ).fetchone()
+
+        return (
+            result is not None
+            and result[0] == "ok"
+        )
+
+    except sqlite3.Error:
+        return False
+
+
 if __name__ == "__main__":
     initialize_database()
+
     print(
         f"Database initialized successfully at: {DATABASE_PATH}"
+    )
+
+    print(
+        "Database integrity:",
+        "OK" if check_database_health() else "FAILED",
     )

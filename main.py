@@ -1,26 +1,51 @@
-from database import initialize_database
-from task_repository import get_all_tasks
+import tkinter as tk
+from tkinter import messagebox
+
+from database import (
+    check_database_health,
+    initialize_database,
+)
+from db_manager import DBManager
+from taskmaster_ui import TaskApp
 
 
 def main() -> None:
-    initialize_database()
+    """
+    Main entry point for TaskMaster Pro.
+    """
+    try:
+        initialize_database()
 
-    print("TaskMaster Pro")
-    print("--------------------")
+        if not check_database_health():
+            raise RuntimeError(
+                "The database integrity check failed."
+            )
 
-    tasks = get_all_tasks()
+        root = tk.Tk()
 
-    if not tasks:
-        print("No tasks found.")
-        return
-
-    for task in tasks:
-        print(
-            f'{task["id"]}. {task["title"]} | '
-            f'{task["category"]} | '
-            f'{task["priority"]} | '
-            f'{task["status"]}'
+        TaskApp(
+            root,
+            db_manager=DBManager(),
         )
+
+        root.mainloop()
+
+    except Exception as error:
+        try:
+            root = tk.Tk()
+            root.withdraw()
+
+            messagebox.showerror(
+                "TaskMaster Pro",
+                f"Application startup failed:\n\n{error}",
+            )
+
+            root.destroy()
+
+        except Exception:
+            print(
+                f"Application startup failed: {error}"
+            )
 
 
 if __name__ == "__main__":
