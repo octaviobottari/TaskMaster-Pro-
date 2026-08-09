@@ -89,7 +89,8 @@ class MockTaskManager:
             return True
         return False
 
-    def filter_tasks(self, status=None, search_term=None):
+    def filter_tasks(self, status=None, search_term=None, category=None, priority=None):
+        """Filtra tareas por estado, búsqueda, categoría y prioridad."""
         result = self.tasks
         if status:
             result = [t for t in result if t["status"] == status]
@@ -99,6 +100,10 @@ class MockTaskManager:
                 t for t in result
                 if term in t["title"].lower() or term in t.get("description", "").lower()
             ]
+        if category:
+            result = [t for t in result if t["category"] == category]
+        if priority:
+            result = [t for t in result if t["priority"] == priority]
         return result
 
     def get_stats(self):
